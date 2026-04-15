@@ -70,7 +70,7 @@ export default function CalendarView({ leaves, profiles, holidays, settings, onR
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-800">Calendar View</h2>
+        <h2 className="text-2xl font-bold text-stone-800">Calendar View</h2>
         <div className="flex gap-2">
           {Object.entries(LEAVE_TYPES).map(([key, type]) => (
             <span
@@ -93,7 +93,7 @@ export default function CalendarView({ leaves, profiles, holidays, settings, onR
       </div>
 
       {selectedLeave && (
-        <div className="bg-white border border-gray-200 rounded-lg p-4 flex items-center justify-between">
+        <div className="bg-white border border-stone-200 rounded-2xl shadow-sm border-stone-100 p-4 flex items-center justify-between">
           <div>
             <span className="font-medium">
               {profiles.find((p) => p.id === selectedLeave.profileId)?.name}
@@ -101,17 +101,17 @@ export default function CalendarView({ leaves, profiles, holidays, settings, onR
             {' - '}
             <span>{LEAVE_TYPES[selectedLeave.type]?.label}</span>
             {' | '}
-            <span className="text-gray-500">
+            <span className="text-stone-500">
               {selectedLeave.startDate} to {selectedLeave.endDate}
             </span>
             {selectedLeave.notes && (
-              <span className="text-gray-400"> - {selectedLeave.notes}</span>
+              <span className="text-stone-400"> - {selectedLeave.notes}</span>
             )}
           </div>
           <div className="flex gap-2">
             <button
               onClick={() => navigate(`/edit/${selectedLeave.id}`)}
-              className="px-3 py-1 text-sm bg-indigo-600 text-white rounded hover:bg-indigo-700"
+              className="px-3 py-1 text-sm bg-teal-600 text-white rounded hover:bg-teal-700"
             >
               Edit
             </button>
@@ -123,7 +123,7 @@ export default function CalendarView({ leaves, profiles, holidays, settings, onR
             </button>
             <button
               onClick={() => setSelectedLeave(null)}
-              className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+              className="px-3 py-1 text-sm bg-stone-200 text-stone-700 rounded hover:bg-stone-300"
             >
               Close
             </button>
@@ -131,7 +131,7 @@ export default function CalendarView({ leaves, profiles, holidays, settings, onR
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow p-4">
+      <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-4">
         <FullCalendar
           plugins={[dayGridPlugin, multiMonthPlugin, interactionPlugin]}
           initialView="dayGridMonth"
