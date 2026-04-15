@@ -7,31 +7,43 @@ import ExternalForm from './components/ExternalForm.jsx';
 import ProfilePage from './components/ProfilePage.jsx';
 import SettingsPage from './components/SettingsPage.jsx';
 import Dashboard from './components/Dashboard.jsx';
-import {
-  getLeaves,
-  getProfiles,
-  getSettings,
-  getCachedHolidays,
-  setCachedHolidays,
-  getCurrentUserId,
-} from './store.js';
+import LoginPage from './components/LoginPage.jsx';
+import Spinner from './components/Spinner.jsx';
+import Toast from './components/Toast.jsx';
+import { fetchLeaves, fetchProfiles, fetchSettings } from './api.js';
+import { getCachedHolidays, setCachedHolidays, getCurrentUserId } from './store.js';
 
 function App() {
-  const [leaves, setLeaves] = useState(getLeaves());
-  const [profiles, setProfiles] = useState(getProfiles());
-  const [settings, setSettings] = useState(getSettings());
+  const [authenticated, setAuthenticated] = useState(
+    () => sessionStorage.getItem('lp_authenticated') === 'true'
+  );
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [leaves, setLeaves] = useState([]);
+  const [profiles, setProfiles] = useState([]);
+  const [settings, setSettings] = useState({ countries: [], year: new Date().getFullYear() });
   const [holidays, setHolidays] = useState([]);
   const [currentUserId, setCurrentUserIdState] = useState(getCurrentUserId());
   const navigate = useNavigate();
 
-  const refresh = useCallback(() => {
-    setLeaves(getLeaves());
-    setProfiles(getProfiles());
-    setSettings(getSettings());
-    setCurrentUserIdState(getCurrentUserId());
+  const loadData = useCallback(async () => {
+    try {
+      const [l, p, s] = await Promise.all([fetchLeaves(), fetchProfiles(), fetchSettings()]);
+      setLeaves(l);
+      setProfiles(p);
+      setSettings(s);
+    } catch {
+      setError('Could not load data — please refresh the page.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  // Fetch holidays when countries change
+  useEffect(() => {
+    if (authenticated) loadData();
+  }, [authenticated, loadData]);
+
+  // Fetch holidays when countries/year change
   useEffect(() => {
     async function fetchHolidays() {
       if (!settings.countries || settings.countries.length === 0) {
@@ -41,159 +53,123 @@ function App() {
       const year = settings.year || new Date().getFullYear();
       const cached = getCachedHolidays();
       const cacheKey = `${settings.countries.sort().join(',')}_${year}`;
-
-      if (cached[cacheKey]) {
-        setHolidays(cached[cacheKey]);
-        return;
-      }
-
+      if (cached[cacheKey]) { setHolidays(cached[cacheKey]); return; }
       try {
         const allHolidays = [];
         for (const country of settings.countries) {
-          const res = await fetch(
-            `https://date.nager.at/api/v3/PublicHolidays/${year}/${country}`
-          );
+          const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/${country}`);
           if (res.ok) {
             const data = await res.json();
-            allHolidays.push(
-              ...data.map((h) => ({
-                date: h.date,
-                name: h.localName || h.name,
-                country,
-              }))
-            );
+            allHolidays.push(...data.map((h) => ({ date: h.date, name: h.localName || h.name, country })));
           }
         }
-        // Deduplicate by date+country
         const unique = allHolidays.filter(
-          (h, i, arr) =>
-            arr.findIndex((x) => x.date === h.date && x.country === h.country) === i
+          (h, i, arr) => arr.findIndex((x) => x.date === h.date && x.country === h.country) === i
         );
         cached[cacheKey] = unique;
         setCachedHolidays(cached);
         setHolidays(unique);
-      } catch (err) {
-        console.error('Failed to fetch holidays:', err);
-      }
+      } catch { /* holidays are non-critical */ }
     }
     fetchHolidays();
   }, [settings.countries, settings.year]);
 
+  const handleLogout = () => {
+    sessionStorage.removeItem('lp_authenticated');
+    setAuthenticated(false);
+  };
+
+  const refresh = useCallback(() => {
+    setCurrentUserIdState(getCurrentUserId());
+    return loadData();
+  }, [loadData]);
+
+  if (!authenticated) {
+    return <LoginPage onLogin={() => setAuthenticated(true)} />;
+  }
+
+  if (loading) return <Spinner fullPage />;
+
   const navItems = [
-    { to: '/', label: 'Dashboard' },
-    { to: '/calendar', label: 'Calendar' },
-    { to: '/gantt', label: 'Gantt' },
-    { to: '/add', label: 'Add Leave' },
-    { to: '/profile', label: 'Profile' },
-    { to: '/settings', label: 'Settings' },
+    { to: '/', label: '🏠 Dashboard' },
+    { to: '/calendar', label: '📅 Calendar' },
+    { to: '/gantt', label: '📊 Gantt' },
+    { to: '/add', label: '+ Add Leave' },
+    { to: '/profile', label: '👤 Profile' },
+    { to: '/settings', label: '⚙️ Settings' },
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white border-b border-gray-200 shadow-sm">
+    <div className="min-h-screen bg-stone-50">
+      <Toast message={error} onDismiss={() => setError('')} />
+      <nav className="bg-white shadow-sm border-b border-stone-100">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between h-16">
-            <h1 className="text-xl font-bold text-indigo-600">Leave Planner</h1>
-            <div className="flex gap-1">
+            <span className="text-xl font-bold text-teal-700">🌿 Leave Planner</span>
+            <div className="flex items-center gap-1 flex-wrap">
               {navItems.map((item) => (
                 <NavLink
                   key={item.to}
                   to={item.to}
                   end={item.to === '/'}
                   className={({ isActive }) =>
-                    `px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    `px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
                       isActive
-                        ? 'bg-indigo-100 text-indigo-700'
-                        : 'text-gray-600 hover:bg-gray-100'
+                        ? 'bg-teal-50 text-teal-700'
+                        : 'text-stone-500 hover:bg-stone-100 hover:text-stone-700'
                     }`
                   }
                 >
                   {item.label}
                 </NavLink>
               ))}
+              <button
+                onClick={handleLogout}
+                className="ml-3 px-3 py-1.5 rounded-full text-sm font-medium text-stone-400 hover:bg-stone-100 hover:text-stone-600 transition-colors"
+              >
+                Log out
+              </button>
             </div>
           </div>
         </div>
       </nav>
-      <main className="max-w-7xl mx-auto px-4 py-6">
+
+      <main className="max-w-7xl mx-auto px-4 py-8">
         <Routes>
-          <Route
-            path="/"
-            element={
-              <Dashboard
-                leaves={leaves}
-                profiles={profiles}
-                holidays={holidays}
-                currentUserId={currentUserId}
-              />
-            }
-          />
-          <Route
-            path="/calendar"
-            element={
-              <CalendarView
-                leaves={leaves}
-                profiles={profiles}
-                holidays={holidays}
-                settings={settings}
-                onRefresh={refresh}
-              />
-            }
-          />
-          <Route
-            path="/gantt"
-            element={
-              <GanttView
-                leaves={leaves}
-                profiles={profiles}
-                holidays={holidays}
-              />
-            }
-          />
-          <Route
-            path="/add"
-            element={
-              <LeaveForm
-                profiles={profiles}
-                holidays={holidays}
-                onSave={() => {
-                  refresh();
-                  navigate('/calendar');
-                }}
-              />
-            }
-          />
-          <Route
-            path="/edit/:id"
-            element={
-              <LeaveForm
-                profiles={profiles}
-                holidays={holidays}
-                onSave={() => {
-                  refresh();
-                  navigate('/calendar');
-                }}
-              />
-            }
-          />
-          <Route
-            path="/form"
-            element={
-              <ExternalForm
-                profiles={profiles}
-                holidays={holidays}
-                onSave={refresh}
-              />
-            }
-          />
-          <Route
-            path="/profile"
-            element={<ProfilePage holidays={holidays} onSave={refresh} />}
-          />
-          <Route
-            path="/settings"
-            element={<SettingsPage settings={settings} onSave={refresh} />}
-          />
+          <Route path="/" element={
+            <Dashboard leaves={leaves} profiles={profiles} holidays={holidays} currentUserId={currentUserId} />
+          } />
+          <Route path="/calendar" element={
+            <CalendarView leaves={leaves} profiles={profiles} holidays={holidays} settings={settings} onRefresh={refresh} />
+          } />
+          <Route path="/gantt" element={
+            <GanttView leaves={leaves} profiles={profiles} holidays={holidays} />
+          } />
+          <Route path="/add" element={
+            <LeaveForm leaves={leaves} profiles={profiles} holidays={holidays}
+              onSave={async () => { await refresh(); navigate('/calendar'); }}
+              onError={setError} />
+          } />
+          <Route path="/edit/:id" element={
+            <LeaveForm leaves={leaves} profiles={profiles} holidays={holidays}
+              onSave={async () => { await refresh(); navigate('/calendar'); }}
+              onError={setError} />
+          } />
+          <Route path="/form" element={
+            <ExternalForm profiles={profiles} holidays={holidays} onSave={refresh} onError={setError} />
+          } />
+          <Route path="/profile" element={
+            <ProfilePage profiles={profiles} holidays={holidays} leaves={leaves}
+              currentUserId={currentUserId}
+              onSave={(newCurrentUserId) => {
+                if (newCurrentUserId !== undefined) setCurrentUserIdState(newCurrentUserId);
+                return refresh();
+              }}
+              onError={setError} />
+          } />
+          <Route path="/settings" element={
+            <SettingsPage settings={settings} onSave={refresh} onError={setError} />
+          } />
         </Routes>
       </main>
     </div>
