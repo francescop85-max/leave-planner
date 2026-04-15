@@ -56,18 +56,18 @@ export default function GanttView({ leaves, profiles, holidays }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-800">Gantt View</h2>
+        <h2 className="text-2xl font-bold text-stone-800">Gantt View</h2>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setStartMonth((m) => addMonths(m, -1))}
-            className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
+            className="px-3 py-1 text-sm bg-stone-200 rounded hover:bg-stone-300"
           >
             &larr; Prev
           </button>
           <select
             value={viewMonths}
             onChange={(e) => setViewMonths(Number(e.target.value))}
-            className="border border-gray-300 rounded px-2 py-1 text-sm"
+            className="border border-stone-300 rounded px-2 py-1 text-sm"
           >
             <option value={1}>1 Month</option>
             <option value={2}>2 Months</option>
@@ -77,13 +77,13 @@ export default function GanttView({ leaves, profiles, holidays }) {
           </select>
           <button
             onClick={() => setStartMonth((m) => addMonths(m, 1))}
-            className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
+            className="px-3 py-1 text-sm bg-stone-200 rounded hover:bg-stone-300"
           >
             Next &rarr;
           </button>
           <button
             onClick={() => setStartMonth(startOfMonth(new Date()))}
-            className="px-3 py-1 text-sm bg-indigo-600 text-white rounded hover:bg-indigo-700"
+            className="px-3 py-1 text-sm bg-teal-600 text-white rounded hover:bg-teal-700"
           >
             Today
           </button>
@@ -112,15 +112,15 @@ export default function GanttView({ leaves, profiles, holidays }) {
           No team members found. Create profiles in the Profile page first.
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow overflow-x-auto" ref={containerRef}>
+        <div className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-x-auto" ref={containerRef}>
           <div
             style={{ minWidth: nameColWidth + allDays.length * dayWidth }}
             className="relative"
           >
             {/* Header: month names */}
-            <div className="flex border-b border-gray-200 sticky top-0 bg-white z-10">
+            <div className="flex border-b border-stone-200 sticky top-0 bg-white z-10">
               <div
-                className="flex-shrink-0 border-r border-gray-200 bg-gray-50 font-medium text-sm text-gray-600 flex items-end px-3 pb-1"
+                className="flex-shrink-0 border-r border-stone-200 bg-stone-50 font-medium text-sm text-stone-600 flex items-end px-3 pb-1"
                 style={{ width: nameColWidth, height: headerHeight }}
               >
                 Team Member
@@ -136,7 +136,7 @@ export default function GanttView({ leaves, profiles, holidays }) {
                     return (
                       <div
                         key={month.toISOString()}
-                        className="text-xs font-semibold text-gray-700 border-r border-gray-200 flex items-center justify-center"
+                        className="text-xs font-semibold text-stone-700 border-r border-stone-200 flex items-center justify-center"
                         style={{ width: daysInMonth * dayWidth }}
                       >
                         {format(month, 'MMMM yyyy')}
@@ -152,12 +152,12 @@ export default function GanttView({ leaves, profiles, holidays }) {
                     return (
                       <div
                         key={day.toISOString()}
-                        className={`text-[10px] flex items-center justify-center border-r border-gray-100 ${
+                        className={`text-[10px] flex items-center justify-center border-r border-stone-100 ${
                           weekend
-                            ? 'bg-gray-100 text-gray-400'
+                            ? 'bg-stone-100 text-stone-400'
                             : holiday
                             ? 'bg-orange-50 text-orange-500'
-                            : 'text-gray-500'
+                            : 'text-stone-500'
                         }`}
                         style={{ width: dayWidth }}
                         title={format(day, 'EEE, MMM d')}
@@ -172,12 +172,15 @@ export default function GanttView({ leaves, profiles, holidays }) {
 
             {/* Rows */}
             {profileLeaves.map(({ profile, leaves: pLeaves }) => (
-              <div key={profile.id} className="flex border-b border-gray-100">
+              <div key={profile.id} className="flex border-b border-stone-100">
                 <div
-                  className="flex-shrink-0 border-r border-gray-200 bg-gray-50 text-sm text-gray-700 flex items-center px-3 truncate"
+                  className="flex-shrink-0 border-r border-stone-200 bg-stone-50 text-sm text-stone-700 flex items-center px-3 truncate"
                   style={{ width: nameColWidth, height: rowHeight }}
                   title={profile.name}
                 >
+                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-teal-100 text-teal-700 text-xs font-bold mr-2 flex-shrink-0">
+                    {profile.name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)}
+                  </span>
                   {profile.name}
                 </div>
                 <div className="flex" style={{ height: rowHeight }}>
@@ -190,7 +193,7 @@ export default function GanttView({ leaves, profiles, holidays }) {
 
                     let bg = 'bg-white';
                     let style = {};
-                    if (weekend) bg = 'bg-gray-50';
+                    if (weekend) bg = 'bg-stone-50';
                     if (holiday) bg = 'bg-orange-50';
                     if (leave && leaveType) {
                       style = { backgroundColor: leaveType.color + '40' };
@@ -200,7 +203,7 @@ export default function GanttView({ leaves, profiles, holidays }) {
                     return (
                       <div
                         key={day.toISOString()}
-                        className={`border-r border-gray-50 flex items-center justify-center ${bg}`}
+                        className={`border-r border-stone-50 flex items-center justify-center ${bg}`}
                         style={{ width: dayWidth, height: rowHeight, ...style }}
                         title={
                           leave
