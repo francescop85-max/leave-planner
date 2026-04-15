@@ -4,17 +4,17 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vercel dev",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "deploy": "npm run build && gh-pages -d dist"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@fullcalendar/daygrid": "^6.1.20",
     "@fullcalendar/interaction": "^6.1.20",
     "@fullcalendar/multimonth": "^6.1.20",
     "@fullcalendar/react": "^6.1.20",
+    "@vercel/kv": "^3.0.0",
     "date-fns": "^4.1.0",
     "lucide-react": "^1.7.0",
     "react": "^19.2.4",
@@ -31,7 +31,6 @@
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
-    "gh-pages": "^6.3.0",
     "globals": "^17.4.0",
     "tailwindcss": "^4.2.2",
     "vite": "^8.0.1"
