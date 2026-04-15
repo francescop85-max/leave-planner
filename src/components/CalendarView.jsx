@@ -3,7 +3,8 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import multiMonthPlugin from '@fullcalendar/multimonth';
 import interactionPlugin from '@fullcalendar/interaction';
 import { useNavigate } from 'react-router-dom';
-import { LEAVE_TYPES, deleteLeave } from '../store.js';
+import { LEAVE_TYPES, removeLeave } from '../store.js';
+import { persistLeaves } from '../api.js';
 import { useState } from 'react';
 
 export default function CalendarView({ leaves, profiles, holidays, settings, onRefresh }) {
@@ -59,11 +60,15 @@ export default function CalendarView({ leaves, profiles, holidays, settings, onR
     }
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (selectedLeave) {
-      deleteLeave(selectedLeave.id);
-      setSelectedLeave(null);
-      onRefresh();
+      try {
+        await persistLeaves(removeLeave(selectedLeave.id, leaves));
+        setSelectedLeave(null);
+        onRefresh();
+      } catch {
+        // silently fail — parent will show toast if needed
+      }
     }
   }
 
