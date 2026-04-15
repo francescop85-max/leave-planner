@@ -1,204 +1,144 @@
-import { useState, useEffect } from 'react';
-import {
-  LEAVE_TYPES,
-  getProfiles,
-  saveProfile,
-  deleteProfile,
-  getCurrentUserId,
-  setCurrentUserId,
-  getUsedDays,
-} from '../store.js';
+import { useState } from 'react';
+import { LEAVE_TYPES, addOrUpdateProfile, removeProfile, getUsedDays, getCurrentUserId, setCurrentUserId } from '../store.js';
+import { persistProfiles } from '../api.js';
 
-export default function ProfilePage({ holidays, onSave }) {
-  const [profiles, setProfiles] = useState(getProfiles());
-  const [currentUserId, setCurrentUserIdState] = useState(getCurrentUserId());
+const DEFAULT_BALANCES = { annual: 25, sick: 10, teleworking: 0, unpaid: 0, parental: 0 };
+
+function InitialAvatar({ name, size = 'md' }) {
+  const initials = name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
+  const cls = size === 'lg'
+    ? 'w-12 h-12 text-base'
+    : 'w-9 h-9 text-sm';
+  return (
+    <span className={`inline-flex items-center justify-center rounded-full bg-teal-100 text-teal-700 font-bold flex-shrink-0 ${cls}`}>
+      {initials}
+    </span>
+  );
+}
+
+export default function ProfilePage({ profiles, leaves, holidays, currentUserId, onSave, onError }) {
   const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState({
-    name: '',
-    balances: {
-      annual: 25,
-      sick: 10,
-      teleworking: 0,
-      unpaid: 0,
-      parental: 0,
-    },
-  });
+  const [form, setForm] = useState({ name: '', balances: { ...DEFAULT_BALANCES } });
+  const [saving, setSaving] = useState(false);
 
-  function refresh() {
-    setProfiles(getProfiles());
-    setCurrentUserIdState(getCurrentUserId());
-    onSave();
-  }
-
-  function handleEdit(profile) {
-    setEditingId(profile.id);
-    setForm({
-      name: profile.name,
-      balances: { ...profile.balances },
-    });
-  }
-
-  function handleSave(e) {
+  async function handleSave(e) {
     e.preventDefault();
     if (!form.name.trim()) return;
-
-    if (editingId) {
-      saveProfile({ id: editingId, ...form });
-    } else {
-      saveProfile(form);
+    setSaving(true);
+    try {
+      const updated = addOrUpdateProfile(editingId ? { id: editingId, ...form } : form, profiles);
+      await persistProfiles(updated);
+      setEditingId(null);
+      setForm({ name: '', balances: { ...DEFAULT_BALANCES } });
+      await onSave();
+    } catch {
+      onError('Could not save profile — please try again.');
+    } finally {
+      setSaving(false);
     }
-    setEditingId(null);
-    setForm({
-      name: '',
-      balances: { annual: 25, sick: 10, teleworking: 0, unpaid: 0, parental: 0 },
-    });
-    refresh();
   }
 
-  function handleDelete(id) {
-    if (confirm('Delete this profile and all associated leave entries?')) {
-      deleteProfile(id);
+  async function handleDelete(id) {
+    if (!confirm('Delete this profile and all associated leave entries?')) return;
+    setSaving(true);
+    try {
+      await persistProfiles(removeProfile(id, profiles));
       if (currentUserId === id) {
         setCurrentUserId(null);
+        await onSave(null);
+      } else {
+        await onSave();
       }
-      refresh();
+    } catch {
+      onError('Could not delete profile — please try again.');
+    } finally {
+      setSaving(false);
     }
   }
 
   function handleSetCurrent(id) {
     setCurrentUserId(id);
-    setCurrentUserIdState(id);
-    onSave();
+    onSave(id);
+  }
+
+  function startEdit(profile) {
+    setEditingId(profile.id);
+    setForm({ name: profile.name, balances: { ...profile.balances } });
   }
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800">Team Profiles</h2>
+      <h2 className="text-2xl font-bold text-stone-800">Team Profiles</h2>
 
-      {/* Form */}
-      <form
-        onSubmit={handleSave}
-        className="bg-white rounded-lg shadow p-6 space-y-4"
-      >
-        <h3 className="text-lg font-semibold">
-          {editingId ? 'Edit Profile' : 'Add New Team Member'}
-        </h3>
-
+      {/* Add / edit form */}
+      <form onSubmit={handleSave} className="bg-white rounded-2xl shadow-sm border border-stone-100 p-6 space-y-4">
+        <h3 className="text-base font-semibold text-stone-700">{editingId ? 'Edit Profile' : 'Add Team Member'}</h3>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-          <input
-            type="text"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-            placeholder="Full name"
-            required
-          />
+          <label className="block text-sm font-medium text-stone-600 mb-1.5">Name</label>
+          <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
+            placeholder="Full name" required
+            className="w-full border border-stone-200 rounded-xl px-3 py-2.5 text-sm bg-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-400" />
         </div>
-
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Leave Balances (days per year)
-          </label>
+          <label className="block text-sm font-medium text-stone-600 mb-2">Leave Balances (days/year)</label>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             {Object.entries(LEAVE_TYPES).map(([key, type]) => (
               <div key={key}>
-                <label className="block text-xs text-gray-500 mb-1">{type.label}</label>
+                <label className="block text-xs text-stone-400 mb-1">{type.label}</label>
                 {type.trackBalance ? (
-                  <input
-                    type="number"
-                    min="0"
-                    value={form.balances[key] || 0}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        balances: {
-                          ...form.balances,
-                          [key]: Number(e.target.value),
-                        },
-                      })
-                    }
-                    className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
-                  />
+                  <input type="number" min="0" value={form.balances[key] || 0}
+                    onChange={(e) => setForm({ ...form, balances: { ...form.balances, [key]: Number(e.target.value) } })}
+                    className="w-full border border-stone-200 rounded-xl px-2 py-1.5 text-sm bg-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-400" />
                 ) : (
-                  <div className="text-xs text-gray-400 px-2 py-1">No limit</div>
+                  <div className="text-xs text-stone-300 px-2 py-1.5">No limit</div>
                 )}
               </div>
             ))}
           </div>
         </div>
-
         <div className="flex gap-2">
-          <button
-            type="submit"
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm font-medium"
-          >
-            {editingId ? 'Update' : 'Add Member'}
+          <button type="submit" disabled={saving}
+            className="px-5 py-2 bg-teal-600 text-white rounded-xl hover:bg-teal-700 text-sm font-medium transition-colors disabled:opacity-50">
+            {saving ? 'Saving…' : editingId ? 'Update' : 'Add Member'}
           </button>
           {editingId && (
-            <button
-              type="button"
-              onClick={() => {
-                setEditingId(null);
-                setForm({
-                  name: '',
-                  balances: {
-                    annual: 25,
-                    sick: 10,
-                    teleworking: 0,
-                    unpaid: 0,
-                    parental: 0,
-                  },
-                });
-              }}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 text-sm"
-            >
+            <button type="button" onClick={() => { setEditingId(null); setForm({ name: '', balances: { ...DEFAULT_BALANCES } }); }}
+              className="px-5 py-2 bg-stone-100 text-stone-600 rounded-xl hover:bg-stone-200 text-sm transition-colors">
               Cancel
             </button>
           )}
         </div>
       </form>
 
-      {/* Profile list */}
+      {/* Profile cards */}
       <div className="space-y-3">
         {profiles.map((profile) => {
-          const usedDays = getUsedDays(profile.id, holidays);
+          const usedDays = getUsedDays(profile.id, leaves, holidays);
           const isCurrent = currentUserId === profile.id;
           return (
-            <div
-              key={profile.id}
-              className={`bg-white rounded-lg shadow p-4 border-2 ${
-                isCurrent ? 'border-indigo-400' : 'border-transparent'
-              }`}
-            >
-              <div className="flex items-center justify-between mb-3">
+            <div key={profile.id}
+              className={`bg-white rounded-2xl shadow-sm border-2 p-5 transition-colors ${isCurrent ? 'border-teal-300' : 'border-stone-100'}`}>
+              <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <h4 className="font-semibold text-gray-800">{profile.name}</h4>
-                  {isCurrent && (
-                    <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded font-medium">
-                      Current User
-                    </span>
-                  )}
+                  <InitialAvatar name={profile.name} size="lg" />
+                  <div>
+                    <h4 className="font-semibold text-stone-800">{profile.name}</h4>
+                    {isCurrent && <span className="text-xs bg-teal-50 text-teal-600 px-2 py-0.5 rounded-full font-medium">You</span>}
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   {!isCurrent && (
-                    <button
-                      onClick={() => handleSetCurrent(profile.id)}
-                      className="px-3 py-1 text-xs bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200"
-                    >
+                    <button onClick={() => handleSetCurrent(profile.id)}
+                      className="px-3 py-1 text-xs bg-teal-50 text-teal-600 rounded-full hover:bg-teal-100 transition-colors">
                       Set as Me
                     </button>
                   )}
-                  <button
-                    onClick={() => handleEdit(profile)}
-                    className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
-                  >
+                  <button onClick={() => startEdit(profile)}
+                    className="px-3 py-1 text-xs bg-stone-100 text-stone-600 rounded-full hover:bg-stone-200 transition-colors">
                     Edit
                   </button>
-                  <button
-                    onClick={() => handleDelete(profile.id)}
-                    className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200"
-                  >
+                  <button onClick={() => handleDelete(profile.id)} disabled={saving}
+                    className="px-3 py-1 text-xs bg-red-50 text-red-500 rounded-full hover:bg-red-100 transition-colors disabled:opacity-50">
                     Delete
                   </button>
                 </div>
@@ -206,44 +146,23 @@ export default function ProfilePage({ holidays, onSave }) {
               <div className="grid grid-cols-5 gap-2">
                 {Object.entries(LEAVE_TYPES).map(([key, type]) => {
                   const used = usedDays[key] || 0;
-
                   if (!type.trackBalance) {
                     return (
-                      <div key={key} className="text-center rounded p-2 bg-gray-50">
-                        <div className="text-[10px] text-gray-500 uppercase">
-                          {type.label}
-                        </div>
-                        <div className="text-sm font-bold text-gray-800">{used}</div>
-                        <div className="text-[10px] text-gray-400">used</div>
+                      <div key={key} className="text-center rounded-xl p-2 bg-stone-50">
+                        <div className="text-[10px] text-stone-400 uppercase">{type.label}</div>
+                        <div className="text-sm font-bold text-stone-700 mt-0.5">{used}</div>
+                        <div className="text-[10px] text-stone-400">used</div>
                       </div>
                     );
                   }
-
                   const total = profile.balances?.[key] || 0;
                   const remaining = total - used;
                   const isOver = remaining < 0;
                   return (
-                    <div
-                      key={key}
-                      className={`text-center rounded p-2 ${
-                        isOver ? 'bg-red-50' : 'bg-gray-50'
-                      }`}
-                    >
-                      <div className="text-[10px] text-gray-500 uppercase">
-                        {type.label}
-                      </div>
-                      <div
-                        className={`text-sm font-bold ${
-                          isOver ? 'text-red-600' : 'text-gray-800'
-                        }`}
-                      >
-                        {remaining}/{total}
-                      </div>
-                      {isOver && (
-                        <div className="text-[10px] text-red-500 font-medium">
-                          EXCEEDED
-                        </div>
-                      )}
+                    <div key={key} className={`text-center rounded-xl p-2 ${isOver ? 'bg-red-50' : 'bg-stone-50'}`}>
+                      <div className="text-[10px] text-stone-400 uppercase">{type.label}</div>
+                      <div className={`text-sm font-bold mt-0.5 ${isOver ? 'text-red-500' : 'text-stone-700'}`}>{remaining}/{total}</div>
+                      {isOver && <div className="text-[10px] text-red-400 font-medium">OVER</div>}
                     </div>
                   );
                 })}
@@ -254,8 +173,9 @@ export default function ProfilePage({ holidays, onSave }) {
       </div>
 
       {profiles.length === 0 && (
-        <div className="text-center text-gray-400 py-8">
-          No team members yet. Add one above.
+        <div className="text-center text-stone-300 py-12">
+          <div className="text-4xl mb-2">👤</div>
+          <p>No team members yet — add one above.</p>
         </div>
       )}
     </div>
