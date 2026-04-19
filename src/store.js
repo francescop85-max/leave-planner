@@ -97,7 +97,8 @@ export function getUsedDays(profileId, leaves, holidays = []) {
 
 // ─── Local-only helpers (per-user preferences, fine to stay in localStorage) ─
 const LS_CURRENT_USER = 'lp_current_user';
-const LS_HOLIDAYS_CACHE = 'lp_holidays_cache';
+// Bump this version when the holiday data source changes to invalidate old caches
+const LS_HOLIDAYS_CACHE = 'lp_holidays_cache_v2';
 
 function lsGet(key, fallback) {
   try { const r = localStorage.getItem(key); return r ? JSON.parse(r) : fallback; }

@@ -43,6 +43,23 @@ function App() {
     if (authenticated) loadData();
   }, [authenticated, loadData]);
 
+  // UN-approved holidays for Ukraine (UNCT Member Organisations), keyed by year.
+  // These override the national calendar — only this subset is guaranteed for UN staff.
+  const UN_HOLIDAYS_UA = {
+    2026: [
+      { date: '2026-01-01', name: 'New Year' },
+      { date: '2026-03-09', name: "International Women's Day (observed)" },
+      { date: '2026-03-20', name: 'Eid al-Fitr' },
+      { date: '2026-04-13', name: 'Easter (observed)' },
+      { date: '2026-05-26', name: 'Eid al-Adha' },
+      { date: '2026-06-01', name: 'Holy Trinity (observed)' },
+      { date: '2026-06-29', name: 'Constitution Day (observed)' },
+      { date: '2026-08-24', name: 'Independence Day of Ukraine' },
+      { date: '2026-10-01', name: 'Defender of Ukraine Day' },
+      { date: '2026-12-25', name: 'Christmas' },
+    ],
+  };
+
   // Fetch holidays when countries/year change
   useEffect(() => {
     async function fetchHolidays() {
@@ -57,6 +74,14 @@ function App() {
       try {
         const allHolidays = [];
         for (const country of settings.countries) {
+          if (country === 'UA') {
+            // Use UN-approved holiday list; fall back to Nager.at if year not defined
+            const unList = UN_HOLIDAYS_UA[year];
+            if (unList) {
+              allHolidays.push(...unList.map((h) => ({ ...h, country: 'UA' })));
+              continue;
+            }
+          }
           const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/${country}`);
           if (res.ok) {
             const data = await res.json();
